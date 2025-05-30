@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Gopinath Dehury Portfolio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: sans-serif;
+            overflow: hidden;
+            position: relative; /* For absolute positioning of desktop and its children */
+            /* Apple Mac Wallpaper */
+            background: url('https://wallpaperaccess.com/full/787201.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .desktop {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 50px;
+            position: relative;
+            width: 100vw; /* Ensure desktop fills viewport for boundary calculations */
+            height: 100vh; /* Ensure desktop fills viewport for boundary calculations */
+        }
+        .folder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: grab;
+            position: absolute; /* All draggable elements are absolute */
+            user-select: none;
+        }
+        .folder:active {
+            cursor: grabbing;
+        }
+        .icon {
+            width: 64px;
+        }
+        .label {
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            margin-bottom: 10px; /* Ensure label has space below */
+            text-align: center;
+        }
+        .window {
+            display: none;
+            position: absolute; /* Changed from fixed to absolute for consistent physics calculations within desktop */
+            top: 100px;
+            left: 100px;
+            width: 400px;
+            background: #f0f0f0;
+            border: 1px solid #888;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+            z-index: 102; /* Windows are always above taskbar and folders */
+            border-radius: 6px;
+        }
+        .window-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #ccc;
+            padding: 5px 10px;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+            cursor: grab; /* The header is the drag handle for the window */
+        }
+        .window-header:active {
+            cursor: grabbing;
+        }
+        .window-content {
+            padding: 10px;
+        }
+        /* macOS-style close button */
+        .close-btn {
+            background: #ff5f56; /* Red dot */
+            color: white;
+            border: none;
+            cursor: pointer;
+            width: 12px; /* Small circular button */
+            height: 12px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0; /* Hide default 'X' text */
+            position: relative;
+            transition: background-color 0.2s ease;
+            margin-left: 5px; /* Spacing from title */
+        }
+        .close-btn:hover {
+            background-color: #e04a42; /* Darker red on hover */
+        }
+        .close-btn::before {
+            content: '×'; /* Unicode multiplication sign for a clean 'x' */
+            font-size: 16px; /* Size of the 'x' */
+            color: rgba(0, 0, 0, 0.6); /* Dark grey 'x' */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.2s ease;
+        }
+        .close-btn:hover::before {
+            opacity: 1; /* Show 'x' on hover */
+        }
+
+        .draggable {
+            position: absolute; /* All draggable elements are absolute */
+            cursor: grab;
+            user-select: none;
+            z-index: 101; /* Ensure draggable elements are above the taskbar */
+        }
+        .draggable:active {
+            cursor: grabbing;
+        }
+        #clock {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            /* background-color is now handled by canvas drawing */
+            color: black;
+            display: block; /* Canvas is inline by default */
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.6);
+            border: 2px solid #66b3ff;
+            /* Adjusted initial position */
+            top: 50px;
+            left: 350px;
+        }
+        #linkedin-icon {
+            width: 60px;
+            height: 60px;
+            background-color: #0077B5;
+            color: white;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            font-weight: bold;
+            text-shadow: none;
+            box-shadow: 3px 3px 8px rgba(0,0,0,0.6);
+            border: 2px solid #005582;
+            text-decoration: none;
+            /* Adjusted initial position */
+            top: 60px;
+            left: 450px;
+        }
+        #linkedin-icon:hover {
+            background-color: #005582;
+        }
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .folder {
+                width: 80px;
+                margin: 10px;
+                position: static; /* Let them flow naturally on smaller screens */
+            }
+            .desktop {
+                flex-direction: column;
+                align-items: center;
+                height: auto;
+            }
+            .window {
+                width: 90%;
+                left: 5%;
+                top: 50px;
+                margin-bottom: 20px;
+                position: absolute; /* Keep windows absolutely positioned for drag */
+            }
+            #clock, #linkedin-icon {
+                position: static; /* Let them flow naturally on smaller screens */
+                margin-top: 20px;
+            }
+            #taskbar {
+                flex-direction: column;
+                height: auto;
+                padding: 10px 5px;
+            }
+            .taskbar-item {
+                margin: 5px 0;
+            }
+        }
+
+        /* Taskbar Styles */
+        #taskbar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.7); /* Semi-transparent dark background */
+            padding: 5px 10px; /* Reduced padding */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            height: 60px; /* Fixed height for taskbar */
+        }
+
+        #taskbar-items {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: nowrap; /* Prevent wrapping to ensure horizontal layout */
+            gap: 10px; /* Spacing between individual taskbar items */
+            height: 100%; /* Make items container fill taskbar height */
+        }
+
+        .taskbar-item {
+            background-color: rgba(255, 255, 255, 0.15); /* Slightly more visible */
+            color: white;
+            width: 50px; /* Slightly larger square icon size */
+            height: 50px; /* Slightly larger square icon size */
+            border-radius: 10px; /* More rounded corners for icon look */
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease, box-shadow 0.2s ease;
+            user-select: none;
+            border: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px; /* Larger Font Awesome icon size */
+            position: relative;
+            flex-shrink: 0; /* Prevent items from shrinking */
+        }
+
+        .taskbar-item:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-5px); /* More pronounced hover effect like macOS dock */
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.5); /* Stronger shadow on hover */
+        }
+
+        .taskbar-item.active {
+            background-color: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.6); /* Stronger glow */
+        }
+
+        /* Styles for Wallpaper Selection Thumbnails */
+        .wallpaper-thumb {
+            width: 80px;
+            height: 60px;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+            background-size: cover;
+            background-position: center;
+            transition: border-color 0.2s ease, transform 0.1s ease;
+        }
+        .wallpaper-thumb:hover {
+            border-color: #007bff;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="desktop" id="desktop">
+        <div class="folder draggable" style="top: 50px; left: 50px;" data-window-id="aboutWindow">
+            <img src="https://cdn-icons-png.flaticon.com/512/716/716784.png" class="icon" alt="About Me">
+            <div class="label">About Me</div>
+        </div>
+        <div class="folder draggable" style="top: 60px; left: 150px;" data-window-id="projectsWindow">
+            <img src="https://cdn-icons-png.flaticon.com/512/716/716784.png" class="icon" alt="My Projects">
+            <div class="label">My Projects</div>
+        </div>
+        <div class="folder draggable" style="top: 70px; left: 250px;" data-window-id="resumeWindow">
+            <img src="https://cdn-icons-png.flaticon.com/512/716/716784.png" class="icon" alt="Resume">
+            <div class="label">Resume</div>
+        </div>
+        <div class="folder draggable" style="top: 160px; left: 50px;" data-window-id="certificatesWindow">
+            <img src="https://cdn-icons-png.flaticon.com/512/716/716784.png" class="icon" alt="Certificates">
+            <div class="label">Certificates</div>
+        </div>
+        <div class="folder draggable" style="top: 170px; left: 150px;" data-window-id="contactWindow">
+            <img src="https://cdn-icons-png.flaticon.com/512/716/716784.png" class="icon" alt="Contact">
+            <div class="label">Contact</div>
+        </div>
+
+        <canvas id="clock" class="draggable" width="70" height="70"></canvas>
+
+        <a href="https://www.linkedin.com/in/gopinathjava" target="_blank" style="text-decoration: none;">
+            <div id="linkedin-icon" class="draggable">in</div>
+        </a>
+    </div>
+
+    <div class="window" id="aboutWindow">
+        <div class="window-header"> <span>About Me</span>
+            <button class="close-btn" onclick="closeWindow('aboutWindow')"></button>
+        </div>
+        <div class="window-content">
+            <p>Hello! I'm <strong>Gopinath Dehury</strong>, a passionate full-stack developer with expertise in Java, Spring Boot, React, and modern web technologies. I love building scalable, efficient software solutions and am constantly learning new technologies to enhance my skills.</p>
+        </div>
+    </div>
+    <div class="window" id="projectsWindow">
+        <div class="window-header"> <span>My Projects</span>
+            <button class="close-btn" onclick="closeWindow('projectsWindow')"></button>
+        </div>
+        <div class="window-content">
+            <ul>
+                <li>Complaint Tracking System</li>
+                <li>Weather App</li>
+                <li>Resume Builder</li>
+                <li>ChatBot Application in Java</li>
+                <li>Student Management System (Spring Boot + React)</li>
+                <li>Online Book Store</li>
+            </ul>
+        </div>
+    </div>
+    <div class="window" id="resumeWindow">
+        <div class="window-header"> <span>Resume</span>
+            <button class="close-btn" onclick="closeWindow('resumeWindow')"></button>
+        </div>
+        <div class="window-content">
+            <p><strong>Gopinath Dehury</strong><br>
+            Bhubaneswar, Odisha<br>
+            Phone: 7750029707<br>
+            Email: gopinathtechdev1@gmail.com<br>
+            LinkedIn: <a href="https://www.linkedin.com/in/gopinathjava" target="_blank">linkedin.com/in/gopinathjava</a><br>
+            GitHub: <a href="https://github.com/Gopinath-Dehury" target="_blank">github.com/Gopinath-Dehury</a><br><br>
+            <strong>Skills:</strong> Java, JavaScript, HTML, CSS, Spring Boot, Hibernate, React, MySQL, Oracle, PostgreSQL, IntelliJ, Eclipse, VS Code, Git/GitHub, Postman<br>
+            <strong>Education:</strong> MCA from Centurion University<br>
+            <a href="Gopinath_Dehury_Resume.pdf" target="_blank">Download Full Resume (PDF)</a></p>
+        </div>
+    </div>
+    <div class="window" id="certificatesWindow">
+        <div class="window-header"> <span>Certificates</span>
+            <button class="close-btn" onclick="closeWindow('certificatesWindow')"></button>
+        </div>
+        <div class="window-content">
+            <ul>
+                <li>Java Programming Certificate</li>
+                <li>Web Development with React</li>
+                <li>Spring Boot & Microservices</li>
+                <li>Database Design & SQL</li>
+            </ul>
+        </div>
+    </div>
+    <div class="window" id="contactWindow">
+        <div class="window-header"> <span>Contact</span>
+            <button class="close-btn" onclick="closeWindow('contactWindow')"></button>
+        </div>
+        <div class="window-content">
+            <p>Feel free to reach out to me for collaboration or job opportunities!<br>
+            <strong>Email:</strong> gopinathtechdev1@gmail.com<br>
+            <strong>Phone:</strong> 7750029707<br>
+            <strong>Location:</strong> Bhubaneswar, Odisha</p>
+        </div>
+    </div>
+
+    <div class="window" id="wallpaperWindow">
+        <div class="window-header"> <span>Change Wallpaper</span>
+            <button class="close-btn" onclick="closeWindow('wallpaperWindow')"></button>
+        </div>
+        <div class="window-content">
+            <p>Select a new background:</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                <button class="wallpaper-thumb" data-wallpaper-url="https://wallpaperaccess.com/full/787201.jpg" style="background-image: url('https://wallpaperaccess.com/full/787201.jpg');"></button>
+                <button class="wallpaper-thumb" data-wallpaper-url="https://512pixels.net/wp-content/uploads/2020/06/11-0-Color-Day-thumbnails.jpg" style="background-image: url('https://512pixels.net/wp-content/uploads/2020/06/11-0-Color-Day-thumbnails.jpg');"></button>
+                <button class="wallpaper-thumb" data-wallpaper-url="https://images.pexels.com/photos/1933239/pexels-photo-1933239.jpeg" style="background-image: url('https://images.pexels.com/photos/1933239/pexels-photo-1933239.jpeg');"></button>
+                <button class="wallpaper-thumb" data-wallpaper-url="https://wallpaperaccess.com/full/317501.jpg" style="background-image: url('https://wallpaperaccess.com/full/317501.jpg');"></button>
+                <button class="wallpaper-thumb" data-wallpaper-url="https://mir-s3-cdn-cf.behance.net/project_modules/1400_opt_1/1fabab92112091.5e4307bdd8ac8.jpg" style="background-image: url('https://mir-s3-cdn-cf.behance.net/project_modules/1400_opt_1/1fabab92112091.5e4307bdd8ac8.jpg');"></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="taskbar">
+        <div class="taskbar-items" id="taskbar-items">
+            <div class="taskbar-item" id="wallpaperTaskbarIcon" data-window-id="wallpaperWindow">
+                <i class="fa-solid fa-image"></i>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Physics will now run only after the first user interaction
+        let hasInteracted = false; 
+
+        // Mapping of window IDs to Font Awesome icon classes
+        const windowIcons = {
+            aboutWindow: 'fa-user',
+            projectsWindow: 'fa-folder-open',
+            resumeWindow: 'fa-file-alt',
+            certificatesWindow: 'fa-award',
+            contactWindow: 'fa-envelope',
+            wallpaperWindow: 'fa-image' // Added for the new wallpaper window
+        };
+
+        // Function to bring a window to the front and activate its taskbar item
+        function bringWindowToFront(id) {
+            const win = document.getElementById(id);
+            if (win) {
+                // Bring the window to the front
+                const allWindows = document.querySelectorAll('.window');
+                let maxZIndex = 102; // Start with base z-index for windows
+                allWindows.forEach(w => {
+                    const z = parseInt(w.style.zIndex || 0);
+                    if (z > maxZIndex) maxZIndex = z;
+                });
+                // Set window z-index higher than taskbar and other elements when active
+                win.style.zIndex = maxZIndex + 1; // +1 to ensure it's above other windows
+                
+                // Update active state in taskbar
+                document.querySelectorAll('.taskbar-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                const taskbarItem = document.querySelector(`.taskbar-item[data-window-id="${id}"]`);
+                if (taskbarItem) {
+                    taskbarItem.classList.add('active');
+                }
+            }
+        }
+
+        // Function to open a window
+        function openWindow(id) {
+            const win = document.getElementById(id);
+            if (win) {
+                // Get desktop bounds and taskbar height to place window within
+                const desktopBounds = desktop.getBoundingClientRect();
+                const taskbarHeight = taskbar.offsetHeight;
+
+                // Calculate random top and left within desktop bounds, avoiding taskbar area
+                // Ensure min/max are valid and provide some buffer from edges
+                // Default window dimensions if not yet rendered
+                const windowWidth = win.offsetWidth > 0 ? win.offsetWidth : 400;
+                const windowHeight = win.offsetHeight > 0 ? win.offsetHeight : 300;
+
+                const minX = 20; // 20px buffer from left
+                const maxX = desktopBounds.width - windowWidth - 20; // 20px buffer from right
+                const minY = 20; // 20px buffer from top
+                const maxY = desktopBounds.height - windowHeight - taskbarHeight - 20; // 20px buffer above taskbar
+
+                // Ensure valid range for random placement, handle cases where window is larger than available space
+                const randomX = Math.max(minX, Math.random() * (maxX - minX));
+                const randomY = Math.max(minY, Math.random() * (maxY - minY));
+
+                win.style.left = `${randomX}px`;
+                win.style.top = `${randomY}px`;
+                win.style.display = 'block';
+                bringWindowToFront(id); // Bring to front when opened
+
+                // Add item to taskbar if it's not already there
+                let taskbarItem = document.querySelector(`.taskbar-item[data-window-id="${id}"]`);
+                if (!taskbarItem) {
+                    taskbarItem = document.createElement('div');
+                    taskbarItem.classList.add('taskbar-item');
+                    taskbarItem.dataset.windowId = id;
+
+                    // Create and append icon
+                    const iconElement = document.createElement('i');
+                    iconElement.classList.add('fa-solid', windowIcons[id]);
+                    taskbarItem.appendChild(iconElement);
+
+                    // Add a tooltip for the window name
+                    taskbarItem.title = win.querySelector('.window-header span').innerText;
+
+                    taskbarItem.addEventListener('click', () => {
+                        bringWindowToFront(id);
+                        win.style.display = 'block'; // Ensure window is visible if it was hidden
+                    });
+                    document.getElementById('taskbar-items').appendChild(taskbarItem);
+                }
+                taskbarItem.classList.add('active'); // Mark as active when opened
+            }
+        }
+
+        // Function to close a window
+        function closeWindow(id) {
+            const win = document.getElementById(id);
+            if (win) {
+                win.style.display = 'none';
+                // Remove item from taskbar unless it's the permanent wallpaper icon
+                if (id !== 'wallpaperWindow') { // Keep wallpaper icon in taskbar
+                    const taskbarItem = document.querySelector(`.taskbar-item[data-window-id="${id}"]`);
+                    if (taskbarItem) {
+                        taskbarItem.remove();
+                    }
+                }
+            }
+        }
+
+        // Analog Clock Drawing Function
+        function drawAnalogClock() {
+            const canvas = document.getElementById('clock');
+            if (!canvas) return; // Exit if canvas element is not found
+            const ctx = canvas.getContext('2d');
+            const radius = canvas.width / 2;
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas for redrawing
+            ctx.translate(radius, radius); // Move origin to center of canvas
+
+            drawFace(ctx, radius);
+            drawNumbers(ctx, radius);
+            drawTime(ctx, radius);
+
+            ctx.translate(-radius, -radius); // Reset origin
+        }
+
+        function drawFace(ctx, radius) {
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.9, 0, 2 * Math.PI);
+            // Deep color for clock face
+            ctx.fillStyle = '#2c3e50'; // A deep blue/grey color
+            ctx.fill();
+            ctx.strokeStyle = '#ecf0f1'; // Lighter border for contrast
+            ctx.lineWidth = radius * 0.05;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(0, 0, radius * 0.05, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ecf0f1'; // Lighter center dot
+            ctx.fill();
+        }
+
+        function drawNumbers(ctx, radius) {
+            ctx.font = radius * 0.25 + "px Arial";
+            ctx.textBaseline = "middle";
+            ctx.textAlign = "center";
+            for (let num = 1; num < 13; num++) {
+                let ang = num * Math.PI / 6;
+                ctx.rotate(ang);
+                ctx.translate(0, -radius * 0.75);
+                ctx.rotate(-ang);
+                ctx.fillStyle = '#ecf0f1'; // Lighter numbers for contrast
+                ctx.fillText(num.toString(), 0, 0);
+                ctx.rotate(ang);
+                ctx.translate(0, radius * 0.75);
+                ctx.rotate(-ang);
+            }
+        }
+
+        function drawTime(ctx, radius) {
+            const now = new Date();
+            let hour = now.getHours();
+            let minute = now.getMinutes();
+            let second = now.getSeconds();
+
+            // Hour hand
+            hour = hour % 12;
+            hour = (hour * Math.PI / 6) + (minute * Math.PI / (6 * 60)) + (second * Math.PI / (360 * 60));
+            drawHand(ctx, hour, radius * 0.5, radius * 0.08, '#ecf0f1'); // Lighter hand for contrast
+
+            // Minute hand
+            minute = (minute * Math.PI / 30) + (second * Math.PI / (30 * 60));
+            drawHand(ctx, minute, radius * 0.8, radius * 0.05, '#ecf0f1'); // Lighter hand for contrast
+
+            // Second hand
+            second = (second * Math.PI / 30);
+            drawHand(ctx, second, radius * 0.9, radius * 0.02, '#e74c3c'); // Red second hand
+        }
+
+        function drawHand(ctx, pos, length, width, color) {
+            ctx.beginPath();
+            ctx.lineWidth = width;
+            ctx.lineCap = "round";
+            ctx.strokeStyle = color;
+            ctx.moveTo(0, 0);
+            ctx.rotate(pos);
+            ctx.lineTo(0, -length);
+            ctx.stroke();
+            ctx.rotate(-pos);
+        }
+
+        // Set interval to update clock every second
+        setInterval(drawAnalogClock, 1000);
+        drawAnalogClock(); // Initial call to display time immediately
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const desktop = document.getElementById('desktop');
+            const taskbar = document.getElementById('taskbar'); // Get taskbar element
+            // Select all elements that can be dragged, including windows
+            const draggableElements = document.querySelectorAll('.draggable, .window');
+
+            let activeElement = null; // Stores the currently dragged element
+            let offsetX, offsetY; // Offsets from mouse/touch to element's top-left
+            let lastX, lastY; // Last position for velocity calculation for dragging
+
+            const friction = 0.98; // Reduces velocity over time
+            const gravity = 1.2;   // Accelerates downward
+
+            // Initialize velocities for all draggable elements (start at rest)
+            draggableElements.forEach(element => {
+                element.velX = 0;
+                element.velY = 0;
+                element.isBeingDragged = false; // Flag to indicate if element is currently being dragged
+            });
+
+            // Dynamically calculate bottomPadding based on taskbar height
+            let bottomPadding = 0; // Initialize to 0
+            const visualBuffer = 40; // Increased buffer for clear separation
+
+            function updateBottomPadding() {
+                // Get the actual rendered height of the taskbar
+                bottomPadding = taskbar.offsetHeight + visualBuffer; // Use offsetHeight for full rendered height + buffer
+            }
+
+            // Call once on load and on resize
+            updateBottomPadding();
+            window.addEventListener('resize', updateBottomPadding);
+
+            // Global animation loop for physics
+            function globalAnimationLoop() {
+                if (hasInteracted) { // Only apply physics if interaction has occurred
+                    draggableElements.forEach(element => {
+                        // Apply gravity
+                        if (!element.isBeingDragged) { // Gravity only affects non-dragged elements
+                            element.velY += gravity;
+                        }
+
+                        // Apply friction
+                        element.velX *= friction;
+                        element.velY *= friction;
+
+                        let newX = element.offsetLeft + element.velX;
+                        let newY = element.offsetTop + element.velY;
+
+                        const desktopBounds = desktop.getBoundingClientRect();
+                        const elementRect = element.getBoundingClientRect();
+
+                        // Collision detection and bouncing off horizontal boundaries
+                        if (newX < 0) {
+                            newX = 0;
+                            element.velX *= -0.7; // Bounce with energy loss
+                        } else if (newX + elementRect.width > desktopBounds.width) {
+                            newX = desktopBounds.width - elementRect.width;
+                            element.velX *= -0.7; // Bounce with energy loss
+                        }
+
+                        // Collision detection and bouncing off vertical boundaries
+                        if (newY + elementRect.height > desktopBounds.height - bottomPadding) {
+                            newY = desktopBounds.height - elementRect.height - bottomPadding; // Place exactly at the bottom with padding
+                            element.velY *= -0.7; // Bounce with energy loss
+
+                            // Improved stopping condition for vertical movement
+                            if (Math.abs(element.velY) < 1.5) {
+                                element.velY = 0;
+                            }
+                            // Improved stopping condition for horizontal movement when settled
+                            if (Math.abs(element.velX) < 0.5) {
+                                 element.velX = 0;
+                            } else {
+                                element.velX *= 0.8; // Apply more friction to horizontal when settled on ground
+                            }
+                        } else if (newY < 0) { // Top boundary
+                            newY = 0;
+                            element.velY *= -0.7;
+                        }
+
+                        // Update element's position (only if not being dragged, as drag function handles it)
+                        if (!element.isBeingDragged) {
+                            element.style.left = `${newX}px`;
+                            element.style.top = `${newY}px`;
+                        }
+
+
+                        // Ensure elements stay within bounds after positioning (with bottom padding)
+                        // These checks are crucial even for dragged elements to prevent them from going off-screen
+                        if (element.offsetLeft < 0) element.style.left = '0px';
+                        if (element.offsetTop < 0) element.style.top = '0px';
+                        if (element.offsetLeft + elementRect.width > desktopBounds.width) element.style.left = `${desktopBounds.width - elementRect.width}px`;
+                        if (element.offsetTop + elementRect.height > desktopBounds.height - bottomPadding) element.style.top = `${desktopBounds.height - elementRect.height - bottomPadding}px`;
+                    });
+
+                    // Inter-element collision detection and resolution
+                    // Run multiple iterations for more stable collisions
+                    const collisionIterations = 10; // Increased iterations for better stability
+                    for (let iter = 0; iter < collisionIterations; iter++) {
+                        for (let i = 0; i < draggableElements.length; i++) {
+                            const elementA = draggableElements[i];
+                            // Skip if element A is currently hidden (e.g., closed window)
+                            if (elementA.style.display === 'none') continue;
+
+                            for (let j = i + 1; j < draggableElements.length; j++) {
+                                const elementB = draggableElements[j];
+                                // Skip if element B is currently hidden
+                                if (elementB.style.display === 'none') continue;
+
+                                // Get bounding rectangles for collision detection
+                                const rectA = elementA.getBoundingClientRect();
+                                const rectB = elementB.getBoundingClientRect();
+
+                                // Check for overlap (Axis-Aligned Bounding Box collision)
+                                if (rectA.left < rectB.right && rectA.right > rectB.left &&
+                                    rectA.top < rectB.bottom && rectA.bottom > rectB.top) {
+
+                                    // Calculate overlap amounts
+                                    const overlapX = Math.min(rectA.right, rectB.right) - Math.max(rectA.left, rectB.left);
+                                    const overlapY = Math.min(rectA.bottom, rectB.bottom) - Math.max(rectA.top, rectB.top);
+
+                                    // Determine axis of least penetration
+                                    if (overlapX < overlapY) {
+                                        // Resolve collision along X-axis
+                                        if (rectA.left < rectB.left) {
+                                            elementA.style.left = `${elementA.offsetLeft - overlapX / 2}px`;
+                                            elementB.style.left = `${elementB.offsetLeft + overlapX / 2}px`;
+                                        } else {
+                                            elementA.style.left = `${elementA.offsetLeft + overlapX / 2}px`;
+                                            elementB.style.left = `${elementB.offsetLeft - overlapX / 2}px`;
+                                        }
+                                        let tempVelX = elementA.velX;
+                                        elementA.velX = elementB.velX * -0.9; // Slightly less elastic bounce
+                                        elementB.velX = tempVelX * -0.9; // Slightly less elastic bounce
+                                    } else {
+                                        if (rectA.top < rectB.top) {
+                                            elementA.style.top = `${elementA.offsetTop - overlapY / 2}px`;
+                                            elementB.style.top = `${elementB.offsetTop + overlapY / 2}px`;
+                                        } else {
+                                            elementA.style.top = `${elementA.offsetTop + overlapY / 2}px`;
+                                            elementB.style.top = `${elementB.offsetTop - overlapY / 2}px`;
+                                        }
+                                        let tempVelY = elementA.velY;
+                                        elementA.velY = elementB.velY * -0.9; // Slightly less elastic bounce
+                                        elementB.velY = tempVelY * -0.9; // Slightly less elastic bounce
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                // Continue the loop indefinitely
+                requestAnimationFrame(globalAnimationLoop);
+            }
+
+            // Start the global animation loop immediately
+            requestAnimationFrame(globalAnimationLoop);
+
+            // Function to start dragging (mouse or touch)
+            function startDrag(e) {
+                if (e.type === 'touchstart') {
+                    e.preventDefault(); // Prevent default touch behavior (like scrolling)
+                }
+
+                // NEW: Set hasInteracted to true on the first drag
+                if (!hasInteracted) {
+                    hasInteracted = true;
+                }
+
+                // Determine the actual element to drag
+                // If it's a window header, the active element is the parent window
+                if (e.target.classList.contains('window-header')) {
+                    activeElement = e.target.parentNode; // The window itself
+                }
+                // Otherwise, it's the element itself (folder, clock, linkedin)
+                else if (e.target.classList.contains('folder') || e.target.id === 'clock' || e.target.id === 'linkedin-icon') {
+                    activeElement = e.target;
+                }
+                // If the click is on the icon or label inside a folder, get the parent folder
+                else if (e.target.parentNode.classList.contains('folder')) {
+                    activeElement = e.target.parentNode;
+                } else {
+                    activeElement = null; // Not a draggable element
+                    return;
+                }
+
+                activeElement.isBeingDragged = true; // Set drag flag
+
+                // Get initial mouse/touch position safely
+                let clientX_start, clientY_start;
+                if (e.type.startsWith('touch')) {
+                    clientX_start = e.touches[0].clientX;
+                    clientY_start = e.touches[0].clientY;
+                } else {
+                    clientX_start = e.clientX;
+                    clientY_start = e.clientY;
+                }
+
+                // Calculate offset from element's top-left to click/touch point
+                offsetX = clientX_start - activeElement.offsetLeft;
+                offsetY = clientY_start - activeElement.offsetTop;
+
+                // Store last position for velocity calculation during drag
+                lastX = clientX_start;
+                lastY = clientY_start;
+
+                // Add event listeners for moving and stopping the drag
+                document.addEventListener('mousemove', drag);
+                document.addEventListener('mouseup', endDrag);
+                document.addEventListener('touchmove', drag, { passive: false });
+                document.addEventListener('touchend', endDrag, { passive: false });
+                document.addEventListener('touchcancel', endDrag, { passive: false });
+            }
+
+            // Function to handle dragging (mouse or touch)
+            function drag(e) {
+                if (!activeElement || !activeElement.isBeingDragged) return;
+
+                if (e.type === 'touchmove') {
+                    e.preventDefault(); // Prevent default touch behavior (like scrolling)
+                }
+
+                // Get current mouse/touch position safely
+                let currentX, currentY;
+                if (e.type.startsWith('touch')) { // Check if it's a touch event
+                    currentX = e.touches[0].clientX;
+                    currentY = e.touches[0].clientY;
+                } else { // Assume it's a mouse event
+                    currentX = e.clientX;
+                    currentY = e.clientY;
+                }
+
+                // Update element's position directly
+                activeElement.style.left = `${currentX - offsetX}px`;
+                activeElement.style.top = `${currentY - offsetY}px`;
+
+                // Calculate instantaneous velocity and update element's physics velocities
+                activeElement.velX = currentX - lastX;
+                activeElement.velY = currentY - lastY;
+
+                // Update last position for next velocity calculation
+                lastX = currentX;
+                lastY = currentY;
+            }
+
+            // Function to end dragging (mouse or touch)
+            function endDrag() {
+                if (!activeElement) return;
+
+                activeElement.isBeingDragged = false; // Clear drag flag
+
+                // Cap the release velocity to prevent extreme jumps and ensure smoother transition
+                const maxReleaseVelocity = 20;
+                activeElement.velX = Math.min(Math.max(activeElement.velX, -maxReleaseVelocity), maxReleaseVelocity);
+                activeElement.velY = Math.min(Math.max(activeElement.velY, -maxReleaseVelocity), maxReleaseVelocity);
+
+                // Remove event listeners
+                document.removeEventListener('mousemove', drag);
+                document.removeEventListener('mouseup', endDrag);
+                document.removeEventListener('touchmove', drag);
+                document.removeEventListener('touchend', endDrag);
+                document.removeEventListener('touchcancel', endDrag);
+
+                activeElement = null; // Clear the active element
+            }
+
+            // Attach startDrag to all draggable elements (folders, clock, linkedin)
+            document.querySelectorAll('.folder, #clock, #linkedin-icon').forEach(element => {
+                element.addEventListener('mousedown', startDrag);
+                element.addEventListener('touchstart', startDrag, { passive: false });
+            });
+
+            // Attach startDrag to window headers (which will drag the parent window)
+            document.querySelectorAll('.window-header').forEach(header => {
+                header.addEventListener('mousedown', startDrag);
+                header.addEventListener('touchstart', startDrag, { passive: false });
+            });
+
+            // Handle opening windows from folders (prevent drag from interfering with click)
+            document.querySelectorAll('.folder').forEach(folder => {
+                let isClick = true;
+                folder.addEventListener('mousedown', () => isClick = true);
+                folder.addEventListener('mousemove', () => isClick = false);
+                folder.addEventListener('mouseup', (e) => {
+                    // Check if the mouseup happened on the same folder and it wasn't a drag
+                    if (isClick && e.target.closest('.folder') === folder) {
+                        const windowId = folder.dataset.windowId;
+                        if (windowId) {
+                            openWindow(windowId);
+                        }
+                    }
+                });
+
+                folder.addEventListener('touchstart', () => isClick = true);
+                folder.addEventListener('touchmove', () => isClick = false);
+                folder.addEventListener('touchend', (e) => {
+                    // Check if the touchend happened on the same folder and it wasn't a drag
+                    if (isClick && e.target.closest('.folder') === folder) {
+                        const windowId = folder.dataset.windowId;
+                        if (windowId) {
+                            openWindow(windowId);
+                        }
+                    }
+                });
+            });
+
+            // Event listeners for wallpaper thumbnails
+            document.querySelectorAll('.wallpaper-thumb').forEach(thumb => {
+                thumb.addEventListener('click', function() {
+                    const url = this.dataset.wallpaperUrl;
+                    document.body.style.backgroundImage = `url('${url}')`;
+                    closeWindow('wallpaperWindow'); // Close the wallpaper selection window after selection
+                });
+            });
+
+            // Event listener for the permanent wallpaper taskbar icon
+            document.getElementById('wallpaperTaskbarIcon').addEventListener('click', () => {
+                openWindow('wallpaperWindow');
+            });
+        });
+    </script>
+</body>
+</html>
